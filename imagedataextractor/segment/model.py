@@ -12,7 +12,7 @@ from PIL import Image
 from .cluster import Cluster
 from .nnmodules import BranchedERFNet
 from .uncertainty import expected_entropy, predictive_entropy, uncertainty_filtering
-
+from skimage import img_as_float32
 
 class ParticleSegmenter:
 
@@ -49,8 +49,7 @@ class ParticleSegmenter:
         """Pre-process image for segmentation model."""
         image = Image.fromarray(image)
         image = image.resize((512, 512), resample=Image.BICUBIC)
-        image = np.array(image)
-        image = image / 255.0
+        image = img_as_float32(np.array(image))
         return image
 
     def postprocess_pred(self, image, h, w):

@@ -30,7 +30,11 @@ def figsplit(image, min_edge=0.05, min_fill=0.8, t=0.9):
     images = []
 
     # convert to grayscale \in [0, 1]
-    gray = rgb2gray(image)
+    if image.ndim == 3:
+        gray = rgb2gray(image)
+    elif image.ndim == 2:
+        gray = image
+        
     # Binarize with high thresh (default 0.9)
     binary = (gray > t).astype(np.uint8)
 

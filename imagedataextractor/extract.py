@@ -12,7 +12,7 @@ import logging
 import numpy as np
 import pandas as pd
 from PIL import Image
-from chemdataextractor import Document
+# from chemdataextractor import Document
 try:
     import torch
 except ImportError:
@@ -55,21 +55,20 @@ def extract(input_path, seg_bayesian=True, seg_n_samples=30, seg_tu=0.0125, seg_
             log.info('Input is an image of type {}.'.format(imghdr.what(input_path)))
             fn = os.path.splitext(input_path)[0].split('/')[-1]
             data = []
-            image = np.array(Image.open(input_path))
-            images = figsplit(image)
-            if not images:
-                images = [image]
-            for i, im in enumerate(images):
-                em_data = _extract_image(im, seg_bayesian, seg_n_samples, seg_tu, seg_device)
-                if len(images) == 1:
-                    em_data.fn = fn
-                else:
-                    em_data.fn = fn + '-' + str(i+1)
-                data.append(em_data)
-    # single document
-    elif os.path.splitext(input_path)[1] in allowed_doc_exts:
-        log.info('Input is a document.')
-        extract_document()
+            image = Image.open(input_path)
+            if image.mode == 'I;16':
+                image_8bit = image.point(lambda i: i * (1./256)).convert('L')
+                rgb_image = Image.merge("RGB", (image_8bit, image_8bit, image_8bit))
+                image = np.array(rgb_image)
+            else:
+                image = np.array(image)
+
+            if image.ndim != 3:
+                image = np.stack((image,)*3, axis=-1)
+            image = image[:512, :512, :]
+            em_data = _extract_image(image, seg_bayesian, seg_n_samples, seg_tu, seg_device)
+            em_data.fn = fn
+            data.append(em_data)
     # directory of images or documents
     elif os.path.isdir(input_path):
         log.info('Input is a directory of images/documents.')
@@ -82,6 +81,7 @@ def extract(input_path, seg_bayesian=True, seg_n_samples=30, seg_tu=0.0125, seg_
             if imghdr.what(file_path) is not None:
                 image = np.array(Image.open(file_path))
                 images = figsplit(image)
+                print('---', images.shape)
                 if not images:
                     images = [image]
                 for i, im in enumerate(images):
@@ -92,9 +92,6 @@ def extract(input_path, seg_bayesian=True, seg_n_samples=30, seg_tu=0.0125, seg_
                         em_data.fn = fn + '-' + str(i+1)
                     data.append(em_data)
                 # data.append([_extract_image(im, seg_bayesian, seg_n_samples, seg_tu, seg_device) for im in images])
-            # document
-            elif file_ext in allowed_doc_exts:
-                extract_document()
         # data = [item for sublist in data for item in sublist]  # flatten
     else:
         error_msg = 'Input is invalid. Provide a path to an image, a path to a document of type {}, or a path to a directory of images and/or documents.'.format(allowed_doc_exts[:2])
@@ -216,7 +213,3 @@ def _extract_image(image, seg_bayesian=True, seg_n_samples=30, seg_tu=0.0125, se
         log.info('Extraction failed - no particles were found.')
 
     return em_data
-
-def extract_document():
-    """Extract from single document."""
-    raise NotImplementedError('Extraction from documents will be implemented upon the release of CDE 2.0. Please use image extraction instead.')
